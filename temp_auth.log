@@ -1,3 +1,11 @@
 Jul 20 10:10:01 ubuntu sshd[12345]: Failed password for invalid user admin from 192.168.1.10 port 54321 ssh2
 Jul 20 10:10:05 ubuntu sshd[12345]: Accepted password for user1 from 192.168.1.15 port 52222 ssh2
 Jul 20 10:11:30 ubuntu sshd[12346]: Failed password for root from 192.168.1.20 port 51212 ssh2
+Jul 20 10:15:42 myhost sshd[12345]: Accepted password for root from 192.168.1.1 port 54321 ssh2
+Jul 20 10:16:10 myhost sshd[12346]: Accepted password for admin from 192.168.1.2 port 54322 ssh2
+Jul 20 10:17:35 myhost sshd[12347]: Failed password for guest from 10.0.0.1 port 54323 ssh2
+Jul 20 10:18:03 myhost sshd[12348]: Failed password for hacker from 203.0.113.10 port 54324 ssh2
+Jul 20 10:19:11 myhost sshd[12349]: Accepted password for user from 198.51.100.23 port 54325 ssh2
+Jul 20 10:20:42 myhost sshd[12350]: Accepted password for admin from 192.168.1.1 port 54326 ssh2
+Jul 20 10:21:17 myhost sshd[12351]: Failed password for unknown from 203.0.113.50 port 54327 ssh2
+

@@ -1,123 +1,63 @@
 import pandas as pd
 import numpy as np
-import re
-from typing import List, Dict, Any, Tuple
-import logging
+from typing import List, Dict, Any
 
-logger = logging.getLogger(__name__)
 
 class AuthLogAnalyzer:
-    def __init__(self, anomaly_model, feature_extractor, label_encoder):
+    def __init__(self, anomaly_model, feature_extractor=None, label_encoders=None):
         self.anomaly_model = anomaly_model
         self.feature_extractor = feature_extractor
-        self.label_encoder = label_encoder
+        self.label_encoders = label_encoders or {}
 
-    def parse_log_line(self, line: str) -> Dict[str, Any]:
-        # Minimal parser for demo (customize as needed)
-        pattern = r'(?P<timestamp>\w{3} \d+ \d{2}:\d{2}:\d{2}) (?P<host>\S+) (?P<service>\S+): (?P<message>.+)'
-        match = re.match(pattern, line)
-        if not match:
-            return None
+    def detect_intrusions(self, entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+        try:
+            # Extract engineered features
+            features_df = self.extract_features(entries)
 
-        message = match.group("message")
-        user_match = re.search(r'user (\w+)', message)
-        ip_match = re.search(r'from (\d+\.\d+\.\d+\.\d+)', message)
-        success = 'Accepted' in message
+            # Predict anomaly scores
+            anomaly_scores = self.anomaly_model.decision_function(features_df)
+            preds = self.anomaly_model.predict(features_df)  # -1 = anomaly, 1 = normal
 
-        return {
-            "raw_line": line,
-            "timestamp": match.group("timestamp"),
-            "user": user_match.group(1) if user_match else "unknown",
-            "ip_address": ip_match.group(1) if ip_match else "0.0.0.0",
-            "success": success,
-            "event_type": "login_attempt"
-        }
+            results = []
+            for entry, score, pred in zip(entries, anomaly_scores, preds):
+                results.append({
+                    "entry": entry,
+                    "anomaly_score": round(score, 4),
+                    "is_anomaly": pred == -1
+                })
+
+            summary = {
+                "total": len(results),
+                "anomalies": sum(r["is_anomaly"] for r in results),
+                "normal": sum(not r["is_anomaly"] for r in results),
+            }
+
+            return {"results": results, "summary": summary}
+
+        except Exception as e:
+            return {"error": f"Anomaly detection failed: {str(e)}"}
 
     def extract_features(self, entries: List[Dict[str, Any]]) -> pd.DataFrame:
         df = pd.DataFrame(entries)
-        df['success'] = df['success'].astype(int)
 
-        if self.label_encoder:
-            try:
-                df['user'] = self.label_encoder.transform(df['user'])
-                df['ip_address'] = self.label_encoder.transform(df['ip_address'])
-            except Exception as e:
-                df['user'] = df['user'].apply(
-                    lambda x: self.label_encoder.transform([x])[0] if x in self.label_encoder.classes_ else -1)
-                df['ip_address'] = df['ip_address'].apply(
-                    lambda x: self.label_encoder.transform([x])[0] if x in self.label_encoder.classes_ else -1)
+        df["ip_address"] = df["ip_address"].astype(str)
+        df["user"] = df["user"].astype(str)
+        df["success"] = df["success"].astype(int)
 
-        return df[['user', 'ip_address', 'success']]
+        ip_counts = df["ip_address"].value_counts().to_dict()
+        user_counts = df["user"].value_counts().to_dict()
+        success_map = df.groupby("user")["success"].mean().to_dict()
 
-    def analyze_log_lines(self, log_lines: List[str]) -> Dict[str, Any]:
-        if not log_lines:
-            return {"error": "No log lines provided"}
+        def is_internal(ip):
+            return ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.")
 
-        try:
-            parsed_entries = []
-            for line in log_lines:
-                parsed = self.parse_log_line(line)
-                if parsed:
-                    parsed_entries.append(parsed)
+        df["ip_login_count"] = df["ip_address"].map(ip_counts)
+        df["user_login_count"] = df["user"].map(user_counts)
+        df["user_success_rate"] = df["user"].map(success_map)
+        df["is_internal_ip"] = df["ip_address"].apply(lambda ip: int(is_internal(ip)))
 
-            if not parsed_entries:
-                return {"error": "No valid log entries found"}
+        df.fillna(0, inplace=True)
 
-            features_df = self.extract_features(parsed_entries)
-
-            if features_df.empty:
-                return {"error": "No features could be extracted"}
-
-            if self.feature_extractor:
-                try:
-                    features = self.feature_extractor.transform(features_df)
-                except Exception as e:
-                    logger.warning(f"Feature extraction failed, using raw features: {e}")
-                    features = features_df.values
-            else:
-                features = features_df.values
-
-            if self.anomaly_model:
-                try:
-                    scores = self.anomaly_model.predict_proba(features)[:, 1]
-                    threshold = 0.5
-                    predictions = (scores >= threshold).astype(int)
-
-                    results = []
-                    for i, entry in enumerate(parsed_entries):
-                        results.append({
-                            'line': entry['raw_line'],
-                            'timestamp': entry.get('timestamp'),
-                            'event_type': entry.get('event_type'),
-                            'user': entry.get('user'),
-                            'ip_address': entry.get('ip_address'),
-                            'success': entry.get('success'),
-                            'anomaly_score': float(scores[i]),
-                            'is_anomaly': bool(predictions[i]),
-                            'anomaly_severity': 'high' if scores[i] >= 0.9 else 'medium' if scores[i] >= 0.7 else 'low'
-                        })
-
-                    anomaly_count = sum(r['is_anomaly'] for r in results)
-                    high_severity_count = sum(r['anomaly_severity'] == 'high' for r in results)
-
-                    return {
-                        'summary': {
-                            'total_entries': len(results),
-                            'anomalies_detected': anomaly_count,
-                            'anomaly_percentage': (anomaly_count / len(results)) * 100,
-                            'high_severity_anomalies': high_severity_count
-                        },
-                        'anomalies': [r for r in results if r['is_anomaly']],
-                        'all_entries': results
-                    }
-
-                except Exception as e:
-                    logger.error(f"Anomaly detection failed: {e}")
-                    return {"error": f"Anomaly detection failed: {str(e)}"}
-
-            else:
-                return {"error": "Anomaly detection model not available"}
-
-        except Exception as e:
-            logger.error(f"Analysis failed: {e}")
-            return {"error": f"Analysis failed: {str(e)}"}
+        # ✅ Must match training column order exactly
+        expected_cols = ["user_success_rate", "ip_login_count", "is_internal_ip", "user_login_count"]
+        return df[expected_cols]
