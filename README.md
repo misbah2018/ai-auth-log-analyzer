@@ -16,3 +16,8 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 streamlit run frontend/streamlit_app.py
 ```
+
+Improvements:
+
+-CLI tool:
+ python app/main.py --input app/sample_auth.log --output result.json

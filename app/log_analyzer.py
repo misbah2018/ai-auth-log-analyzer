@@ -1,63 +1,93 @@
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Any
+import pickle
+from datetime import datetime
 
+# Simulate parsed log entries
+parsed_entries = [
+    {"timestamp": "Jul 21 10:12:34", "event_type": "login_attempt", "user": "user1", "ip_address": "192.168.1.10", "success": 1},
+    {"timestamp": "Jul 21 10:12:50", "event_type": "login_attempt", "user": "admin", "ip_address": "10.0.0.5", "success": 1},
+    {"timestamp": "Jul 21 10:13:10", "event_type": "login_attempt", "user": "user2", "ip_address": "192.168.1.15", "success": 0},
+    {"timestamp": "Jul 21 10:13:25", "event_type": "login_attempt", "user": "sysadmin", "ip_address": "192.168.1.7", "success": 1},
+    {"timestamp": "Jul 21 10:14:01", "event_type": "login_attempt", "user": "root", "ip_address": "45.33.32.156", "success": 0},
+    {"timestamp": "Jul 21 10:14:10", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+    {"timestamp": "Jul 21 10:14:11", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+    {"timestamp": "Jul 21 10:14:12", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+    {"timestamp": "Jul 21 10:14:13", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+    {"timestamp": "Jul 21 10:15:00", "event_type": "login_attempt", "user": "user1", "ip_address": "192.168.1.10", "success": 1},
+]
 
-class AuthLogAnalyzer:
-    def __init__(self, anomaly_model, feature_extractor=None, label_encoders=None):
-        self.anomaly_model = anomaly_model
-        self.feature_extractor = feature_extractor
-        self.label_encoders = label_encoders or {}
+# Extract all users and IPs for feature mapping
+users = [e["user"] for e in parsed_entries]
+ips = [e["ip_address"] for e in parsed_entries]
 
-    def detect_intrusions(self, entries: List[Dict[str, Any]]) -> Dict[str, Any]:
-        try:
-            # Extract engineered features
-            features_df = self.extract_features(entries)
+user_counts = pd.Series(users).value_counts().to_dict()
+ip_counts = pd.Series(ips).value_counts().to_dict()
+success_map = pd.DataFrame(parsed_entries).groupby("user")["success"].mean().to_dict()
 
-            # Predict anomaly scores
-            anomaly_scores = self.anomaly_model.decision_function(features_df)
-            preds = self.anomaly_model.predict(features_df)  # -1 = anomaly, 1 = normal
+def is_internal(ip):
+    return ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.")
 
-            results = []
-            for entry, score, pred in zip(entries, anomaly_scores, preds):
-                results.append({
-                    "entry": entry,
-                    "anomaly_score": round(score, 4),
-                    "is_anomaly": pred == -1
-                })
+# --- Build feature DataFrame ---
+for entry in parsed_entries:
+    entry["ip_login_count"] = ip_counts.get(entry["ip_address"], 0)
+    entry["user_login_count"] = user_counts.get(entry["user"], 0)
+    entry["user_success_rate"] = success_map.get(entry["user"], 0.0)
+    entry["is_internal_ip"] = int(is_internal(entry["ip_address"]))
 
-            summary = {
-                "total": len(results),
-                "anomalies": sum(r["is_anomaly"] for r in results),
-                "normal": sum(not r["is_anomaly"] for r in results),
-            }
+features_df = pd.DataFrame(parsed_entries)
+expected_cols = ["user_success_rate", "ip_login_count", "is_internal_ip", "user_login_count"]
 
-            return {"results": results, "summary": summary}
+# --- Load the model ---
+with open("models/is_intrusion_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-        except Exception as e:
-            return {"error": f"Anomaly detection failed: {str(e)}"}
+# --- Predict ---
+scores = model.decision_function(features_df[expected_cols])
+predictions = model.predict(features_df[expected_cols])  # -1 = anomaly, 1 = normal
 
-    def extract_features(self, entries: List[Dict[str, Any]]) -> pd.DataFrame:
-        df = pd.DataFrame(entries)
+# --- Compute thresholds for severity ---
+threshold_high = np.percentile(scores, 10)
+threshold_medium = np.percentile(scores, 30)
 
-        df["ip_address"] = df["ip_address"].astype(str)
-        df["user"] = df["user"].astype(str)
-        df["success"] = df["success"].astype(int)
+# --- Tag anomalies ---
+anomalies = []
+all_tagged = []
+for entry, score, pred in zip(parsed_entries, scores, predictions):
+    is_anomaly = pred == -1
 
-        ip_counts = df["ip_address"].value_counts().to_dict()
-        user_counts = df["user"].value_counts().to_dict()
-        success_map = df.groupby("user")["success"].mean().to_dict()
+    # Dynamic severity logic
+    if score < threshold_high:
+        severity = "high"
+    elif score < threshold_medium:
+        severity = "medium"
+    else:
+        severity = "low"
 
-        def is_internal(ip):
-            return ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.")
+    entry.update({
+        "anomaly_score": score,
+        "is_anomaly": is_anomaly,
+        "anomaly_severity": severity if is_anomaly else "none"
+    })
 
-        df["ip_login_count"] = df["ip_address"].map(ip_counts)
-        df["user_login_count"] = df["user"].map(user_counts)
-        df["user_success_rate"] = df["user"].map(success_map)
-        df["is_internal_ip"] = df["ip_address"].apply(lambda ip: int(is_internal(ip)))
+    all_tagged.append(entry)
+    if is_anomaly:
+        anomalies.append(entry)
 
-        df.fillna(0, inplace=True)
+# --- Summary Report ---
+summary = {
+    "total_entries": len(parsed_entries),
+    "anomalies_detected": len(anomalies),
+    "anomaly_percentage": round(len(anomalies) / len(parsed_entries) * 100, 2),
+    "high_severity_anomalies": sum(1 for a in anomalies if a["anomaly_severity"] == "high"),
+}
 
-        # ✅ Must match training column order exactly
-        expected_cols = ["user_success_rate", "ip_login_count", "is_internal_ip", "user_login_count"]
-        return df[expected_cols]
+output = {
+    "summary": summary,
+    "anomalies": anomalies,
+    "all_entries": all_tagged
+}
+
+import json
+print("📊 Final anomaly report:")
+print(json.dumps(output, indent=2))
