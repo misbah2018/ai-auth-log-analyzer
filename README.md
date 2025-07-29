@@ -20,4 +20,4 @@ streamlit run frontend/streamlit_app.py
 Improvements:
 
 -CLI tool:
- python app/main.py --input app/sample_auth.log --output result.json
+ python -m app.main --input app/sample_auth.log --output result.json
