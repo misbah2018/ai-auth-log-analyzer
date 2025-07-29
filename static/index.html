@@ -131,6 +131,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
+    let lastResultData = null; // store result JSON for download
+
     // Toggle dark mode function
     function toggleDarkMode() {
       document.documentElement.classList.toggle('dark-mode');
@@ -167,6 +169,8 @@
             return;
           }
 
+          lastResultData = data; // save for download
+
           const resultContainer = document.getElementById("result");
           resultContainer.textContent = JSON.stringify(data.summary, null, 2);
           document.getElementById("downloadBtn").style.display = "inline-block";
@@ -175,10 +179,17 @@
           const labels = anomalies.map((a, i) => `#${i + 1}`);
           const scores = anomalies.map(a => a.anomaly_score);
 
+          console.log("Anomaly scores:", scores);
+
           const ctx = document.getElementById('chart').getContext('2d');
           if (window.chartInstance) {
             window.chartInstance.destroy();
           }
+
+          // Calculate min and max with padding
+          const minScore = Math.min(...scores);
+          const maxScore = Math.max(...scores);
+          const padding = 0.1;
 
           window.chartInstance = new Chart(ctx, {
             type: 'bar',
@@ -197,6 +208,22 @@
                   display: true,
                   text: 'Detected Anomaly Scores'
                 }
+              },
+              scales: {
+                y: {
+                  min: Math.min(minScore - padding, 0),
+                  max: Math.max(maxScore + padding, 0),
+                  title: {
+                    display: true,
+                    text: 'Anomaly Score'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Anomaly #'
+                  }
+                }
               }
             }
           });
@@ -208,9 +235,23 @@
       });
     });
 
-    // Dummy downloadResult function to avoid errors (you can implement your own)
+    // Download JSON result as file
     function downloadResult() {
-      alert('Download functionality is not implemented yet.');
+      if (!lastResultData) {
+        alert('No analysis result to download.');
+        return;
+      }
+      const dataStr = JSON.stringify(lastResultData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'result.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     }
   </script>
 </body>

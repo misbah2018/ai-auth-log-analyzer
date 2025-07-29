@@ -33,9 +33,9 @@ async def analyze_log_file(logfile: UploadFile = File(...)):
         shutil.copyfileobj(logfile.file, buffer)
     print(f"Saved to: {temp_path}")
 
-
     try:
         results = run_analysis(temp_path, temp_result_path)
+        print("Analysis results:", results)  # Add this line to inspect output
         return JSONResponse(content=results)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
