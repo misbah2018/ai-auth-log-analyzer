@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Auth Log Analyzer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+      width: 700px;
+      transition: background 0.3s, color 0.3s;
+    }
+    h1 {
+      color: #003366;
+    }
+    input[type="file"] {
+      margin-top: 15px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 18px;
+      background-color: #007acc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #005fa3;
+    }
+    .spinner {
+      display: none;
+      margin-top: 15px;
+    }
+    #result {
+      margin-top: 25px;
+      padding: 20px;
+      background: #f0f5fa;
+      border-left: 5px solid #007acc;
+      font-family: monospace;
+      border-radius: 6px;
+      overflow-x: auto;
+      max-height: 400px;
+      white-space: pre-wrap;
+      transition: background 0.3s, color 0.3s, border-color 0.3s;
+    }
+    canvas {
+      margin-top: 25px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      transition: background 0.3s;
+    }
+    .actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #downloadBtn {
+      display: none;
+      background-color: #28a745;
+      transition: background-color 0.3s;
+    }
+    #downloadBtn:hover {
+      background-color: #218838;
+    }
+    /* Dark mode styles toggle on html.dark-mode */
+    html.dark-mode body {
+      background: #181818;
+      color: #e0e0e0;
+    }
+    html.dark-mode .container {
+      background: #262626;
+      color: #e0e0e0;
+    }
+    html.dark-mode #result {
+      background: #1f1f1f;
+      color: #00ff8c;
+      border-color: #00ff8c;
+    }
+    html.dark-mode canvas {
+      background: #333;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 0.9em;
+      text-align: center;
+      color: #888;
+      transition: color 0.3s;
+    }
+    html.dark-mode .footer {
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 AI Auth Log Analyzer</h1>
+
+    <form id="uploadForm">
+      <input type="file" name="logfile" accept=".log" required />
+      <br />
+      <div class="actions">
+        <button type="submit">🚀 Analyze</button>
+        <button type="button" onclick="toggleDarkMode()">🌓 Toggle Theme</button>
+      </div>
+      <div class="spinner" id="spinner">⏳ Analyzing...</div>
+    </form>
+
+    <div id="result"></div>
+    <canvas id="chart" width="600" height="300" style="display:block; max-width:100%;"></canvas>
+    <button id="downloadBtn" onclick="downloadResult()">⬇ Download JSON</button>
+
+    <div class="footer">Built by <strong>Misbah Saad</strong> • AI + Cybersecurity</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    // Toggle dark mode function
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark-mode');
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      const form = document.getElementById('uploadForm');
+      const fileInput = form.querySelector('input[name="logfile"]');
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        if (!fileInput.files.length) {
+          alert('Please select a log file.');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('logfile', fileInput.files[0]);
+
+        document.getElementById("spinner").style.display = "block";
+
+        try {
+          const response = await fetch('/analyze', {
+            method: 'POST',
+            body: formData
+          });
+
+          const data = await response.json();
+          document.getElementById("spinner").style.display = "none";
+
+          if (data.error) {
+            alert("❌ Error: " + data.error);
+            return;
+          }
+
+          const resultContainer = document.getElementById("result");
+          resultContainer.textContent = JSON.stringify(data.summary, null, 2);
+          document.getElementById("downloadBtn").style.display = "inline-block";
+
+          const anomalies = data.anomalies || [];
+          const labels = anomalies.map((a, i) => `#${i + 1}`);
+          const scores = anomalies.map(a => a.anomaly_score);
+
+          const ctx = document.getElementById('chart').getContext('2d');
+          if (window.chartInstance) {
+            window.chartInstance.destroy();
+          }
+
+          window.chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Anomaly Score',
+                data: scores,
+                backgroundColor: 'rgba(255, 99, 132, 0.6)'
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Detected Anomaly Scores'
+                }
+              }
+            }
+          });
+
+        } catch (err) {
+          alert("❌ Network error");
+          document.getElementById("spinner").style.display = "none";
+        }
+      });
+    });
+
+    // Dummy downloadResult function to avoid errors (you can implement your own)
+    function downloadResult() {
+      alert('Download functionality is not implemented yet.');
+    }
+  </script>
+</body>
+</html>

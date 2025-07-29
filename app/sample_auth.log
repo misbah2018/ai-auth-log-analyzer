@@ -1,17 +1,2 @@
-Jul 21 10:12:34 server sshd: Accepted password for user1 from 192.168.1.10 port 54321 ssh2
-Jul 21 10:12:50 server sshd: Accepted password for admin from 10.0.0.5 port 54322 ssh2
-Jul 21 10:13:10 server sshd: Failed password for user2 from 192.168.1.15 port 54323 ssh2
-Jul 21 10:13:25 server sshd: Accepted password for sysadmin from 192.168.1.7 port 54324 ssh2
-
-# Suspicious IP, unknown user
-Jul 21 10:14:01 server sshd: Failed password for root from 45.33.32.156 port 54325 ssh2
-
-# Burst of failed logins from single IP
-Jul 21 10:14:10 server sshd: Failed password for unknown from 203.0.113.5 port 54326 ssh2
-Jul 21 10:14:11 server sshd: Failed password for unknown from 203.0.113.5 port 54327 ssh2
-Jul 21 10:14:12 server sshd: Failed password for unknown from 203.0.113.5 port 54328 ssh2
-Jul 21 10:14:13 server sshd: Failed password for unknown from 203.0.113.5 port 54329 ssh2
-
-# Normal successful login again
-Jul 21 10:15:00 server sshd: Accepted password for user1 from 192.168.1.10 port 54330 ssh2
-
+Jul 20 10:00:00 localhost sshd[12345]: Failed password for admin from 192.168.1.10 port 22 ssh2
+Jul 20 10:01:00 localhost sshd[12345]: Accepted password for root from 203.0.113.5 port 22 ssh2

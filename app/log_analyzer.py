@@ -4,18 +4,18 @@ import pickle
 from datetime import datetime
 
 # Simulate parsed log entries
-parsed_entries = [
-    {"timestamp": "Jul 21 10:12:34", "event_type": "login_attempt", "user": "user1", "ip_address": "192.168.1.10", "success": 1},
-    {"timestamp": "Jul 21 10:12:50", "event_type": "login_attempt", "user": "admin", "ip_address": "10.0.0.5", "success": 1},
-    {"timestamp": "Jul 21 10:13:10", "event_type": "login_attempt", "user": "user2", "ip_address": "192.168.1.15", "success": 0},
-    {"timestamp": "Jul 21 10:13:25", "event_type": "login_attempt", "user": "sysadmin", "ip_address": "192.168.1.7", "success": 1},
-    {"timestamp": "Jul 21 10:14:01", "event_type": "login_attempt", "user": "root", "ip_address": "45.33.32.156", "success": 0},
-    {"timestamp": "Jul 21 10:14:10", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
-    {"timestamp": "Jul 21 10:14:11", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
-    {"timestamp": "Jul 21 10:14:12", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
-    {"timestamp": "Jul 21 10:14:13", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
-    {"timestamp": "Jul 21 10:15:00", "event_type": "login_attempt", "user": "user1", "ip_address": "192.168.1.10", "success": 1},
-]
+# parsed_entries = [
+#     {"timestamp": "Jul 21 10:12:34", "event_type": "login_attempt", "user": "user1", "ip_address": "192.168.1.10", "success": 1},
+#     {"timestamp": "Jul 21 10:12:50", "event_type": "login_attempt", "user": "admin", "ip_address": "10.0.0.5", "success": 1},
+#     {"timestamp": "Jul 21 10:13:10", "event_type": "login_attempt", "user": "user2", "ip_address": "192.168.1.15", "success": 0},
+#     {"timestamp": "Jul 21 10:13:25", "event_type": "login_attempt", "user": "sysadmin", "ip_address": "192.168.1.7", "success": 1},
+#     {"timestamp": "Jul 21 10:14:01", "event_type": "login_attempt", "user": "root", "ip_address": "45.33.32.156", "success": 0},
+#     {"timestamp": "Jul 21 10:14:10", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+#     {"timestamp": "Jul 21 10:14:11", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+#     {"timestamp": "Jul 21 10:14:12", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+#     {"timestamp": "Jul 21 10:14:13", "event_type": "login_attempt", "user": "unknown", "ip_address": "203.0.113.5", "success": 0},
+#     {"timestamp": "Jul 21 10:15:00", "event_type": "login_attempt", "user": "user1", "ip_address": "192.168.1.10", "success": 1},
+# ]
 
 # Extract all users and IPs for feature mapping
 users = [e["user"] for e in parsed_entries]
