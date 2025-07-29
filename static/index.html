@@ -177,9 +177,11 @@
 
           const anomalies = data.anomalies || [];
           const labels = anomalies.map((a, i) => `#${i + 1}`);
-          const scores = anomalies.map(a => a.anomaly_score);
+          anomalies.sort((a, b) => a.decision_score - b.decision_score);
+          // Use negated decision_score for meaningful chart bars
+          const scores = anomalies.map(a => a.decision_score);
 
-          console.log("Anomaly scores:", scores);
+          console.log("Anomaly scores (inverted decision_score):", scores);
 
           const ctx = document.getElementById('chart').getContext('2d');
           if (window.chartInstance) {
@@ -198,7 +200,7 @@
               datasets: [{
                 label: 'Anomaly Score',
                 data: scores,
-                backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                backgroundColor: scores.map(s => s < -0.15 ? '#ff4d4d' : '#ffa07a')  // 🔥 Dynamic coloring
               }]
             },
             options: {
